@@ -155,6 +155,8 @@ public final class HikariPool extends PoolBase implements HikariPoolMXBean, IBag
     *
     * @return a java.sql.Connection instance
     * @throws SQLException thrown if a timeout occurs trying to obtain a connection
+    *
+    * 从连接池中获取一个连接源
     */
    public Connection getConnection() throws SQLException
    {
@@ -176,6 +178,9 @@ public final class HikariPool extends PoolBase implements HikariPoolMXBean, IBag
       try {
          long timeout = hardTimeout;
          do {
+            /**
+             * 从连接池包中借出一个连接
+             */
             PoolEntry poolEntry = connectionBag.borrow(timeout, MILLISECONDS);
             if (poolEntry == null) {
                break; // We timed out... break and throw exception

@@ -87,12 +87,17 @@ public class HikariDataSource extends HikariConfig implements DataSource, Closea
    // ***********************************************************************
    //                          DataSource methods
    // ***********************************************************************
-
+   /**
+    * 1.SqliteDataStoreServiceImpl类getCache方法和batchGetCache方法开始调用此方法
+    */
    /** {@inheritDoc} */
    @Override
    public Connection getConnection() throws SQLException
    {
       if (isClosed()) {
+         /**
+          * 如果连接池关闭则抛异常,isShutdown属性表示连接池状态，使用volatile修饰，使用CAS方法更新
+          */
          throw new SQLException("HikariDataSource " + this + " has been closed.");
       }
 
