@@ -8,6 +8,7 @@ import com.mysql.cj.jdbc.NonRegisteringDriver;
 import com.zaxxer.hikari.pool.HikariPool;
 import com.zaxxer.hikari.util.DriverDataSource;
 
+import java.lang.ref.Reference;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -77,8 +78,42 @@ public class ConnectionProcess {
       NonRegisteringDriver.trackConnection(this);
 
       /**
+       * 每次创建新的连接，都会将其放入{@link NonRegisteringDriver#connectionPhantomRefs}中,并创建一个虚连接。
+       * 由于默认配置的maxPoolSize,minIdle,maxLifetime等参数过小，导致反复创建数据库连接，
+       * 进而创建了大量数据库连接，从而导致 connectionPhantomRefs 元素不断增加。
        * 具体出现内存泄露的原因参见 {@link TestReferenceQueue}代码。
        */
+      /**
+       * {@link NonRegisteringDriver#connectionPhantomRefs}数据源的清楚是{@link com.mysql.cj.jdbc.AbandonedConnectionCleanupThread}负责的。
+       * 数据库连接关闭后，数据库连接对象将会被GC清除，
+       * 被GC清除后的数据库连接的虚引用就会自动进入到入NonRegisteringDriver.refQueue 队列。
+       * 然后执行下面的程序，不断从队列中获取连接的虚引用。
+       * 下面程序中的关键代码是cleanup()方法，cleanup()方法的主要作用是关闭网络资源NetworkResources。
+       * 最后一步再从connectionPhantomRefs中移除虚引用。
+       */
+      public void run() {
+         for (;;) {
+            try {
+               checkContextClassLoaders();
+               Reference<? extends ConnectionImpl> ref = NonRegisteringDriver.refQueue.remove(5000);
+               if (ref != null) {
+                  try {
+                     ((NonRegisteringDriver.ConnectionPhantomReference) ref).cleanup();
+                  } finally {
+                     NonRegisteringDriver.connectionPhantomRefs.remove(ref);
+                  }
+               }
+
+            } catch (InterruptedException e) {
+               threadRef = null;
+               return;
+
+            } catch (Exception ex) {
+               // Nowhere to really log this.
+            }
+         }
+      }
+
    }
 
 
