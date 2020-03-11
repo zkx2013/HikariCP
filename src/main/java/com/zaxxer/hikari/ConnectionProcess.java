@@ -113,6 +113,11 @@ public class ConnectionProcess {
             }
          }
       }
+      /**
+       * 解决方案：
+       * 1.手动chSystem.gc() 方法触发GC。
+       * 3.将相关配置时间设置变长，避免数据库连接的反复创建
+       */
 
    }
 
